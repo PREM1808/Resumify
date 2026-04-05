@@ -1,3 +1,4 @@
+.env
 # Logs
 logs
 *.log
@@ -22,3 +23,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Add this to .gitignore
+*.json
+!package.json
+!package-lock.json

@@ -1,0 +1,24 @@
+# --- Backend / Django ---
+.env
+*.log
+db.sqlite3
+__pycache__/
+*.pyc
+media/
+staticfiles/
+venv/
+.venv/
+
+# --- Frontend / React ---
+node_modules/
+dist/
+build/
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# --- IDEs / Editors ---
+.vscode/
+.idea/
