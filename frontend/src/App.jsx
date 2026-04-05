@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { auth } from './firebase'; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import Login from './components/Login'; 
+import History from './components/History'; // 1. Import the new component
 import './App.css';
 import Markdown from 'react-markdown';
 
@@ -18,7 +19,10 @@ const Navbar = ({ user, onLoginClick }) => (
             {user.email}
           </span>
           <button 
-            onClick={() => signOut(auth)}
+            onClick={() => {
+              signOut(auth);
+              localStorage.removeItem('token'); // Clear token on logout
+            }}
             className="bg-slate-800 text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-slate-700 transition active:scale-95"
           >
             Logout
@@ -75,12 +79,18 @@ function App() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [refreshHistory, setRefreshHistory] = useState(0); // Trigger to refresh history list
 
   // --- Auth Observer ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      if (currentUser) setShowAuth(false); 
+      if (currentUser) {
+        setShowAuth(false);
+        // Refresh token in localStorage on state change
+        const token = await currentUser.getIdToken();
+        localStorage.setItem('token', token);
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -99,7 +109,6 @@ function App() {
     formData.append('resume', file); 
 
     try {
-      // Force refresh token to ensure it's valid
       const token = await user.getIdToken(true);
 
       const response = await fetch('http://127.0.0.1:8000/analyse/', {
@@ -111,7 +120,6 @@ function App() {
       const result = await response.json();
 
       if (!response.ok) {
-        // Specifically check for our Django 403 (Quota/Error)
         if (response.status === 403) {
            throw new Error(result.error || "AI Quota exceeded. Please wait a minute.");
         }
@@ -119,6 +127,7 @@ function App() {
       }
 
       setAnalysisResult(result);
+      setRefreshHistory(prev => prev + 1); // 2. Trigger history refresh after success
     } catch (error) {
       console.error("Analysis Error:", error.message);
       alert(error.message);
@@ -142,7 +151,7 @@ function App() {
           </button>
         </div>
       ) : (
-        <div className="w-full max-w-2xl text-center">
+        <div className="w-full max-w-4xl text-center">
           <header className="mb-12">
             <h1 className="text-5xl md:text-7xl font-black text-slate-900 mb-6 tracking-tight">
               Stop guessing. <br />
@@ -173,34 +182,32 @@ function App() {
                 </span>
               ) : 'Analyse My Resume'}
             </button>
+          </div>
 
-            {/* Analysis Results Display */}
-            {analysisResult && (
-              <div className="mt-10 p-8 bg-white rounded-3xl shadow-2xl border border-blue-50 text-left animate-in fade-in slide-in-from-top-6 duration-700">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-2xl font-black text-slate-900">🚀 Results</h3>
-                  <div className="px-3 py-1 bg-green-100 text-green-700 text-xs font-black rounded-lg uppercase">
-                    AI Analysis Ready
-                  </div>
-                </div>
-                
-                <div className="space-y-6">
-                  <div className="prose prose-sm prose-blue max-w-none text-slate-700 leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                    <Markdown>{analysisResult.analysis}</Markdown>
-                  </div>
-
-                  {analysisResult.preview && (
-                    <div className="p-4 bg-white rounded-xl border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-2">Original Text Sample</p>
-                      <p className="text-slate-400 text-[11px] italic line-clamp-2 leading-tight">
-                        "{analysisResult.preview}"
-                      </p>
-                    </div>
-                  )}
+          {/* Current Analysis Result */}
+          {analysisResult && (
+            <div className="max-w-2xl mx-auto mt-10 p-8 bg-white rounded-3xl shadow-2xl border border-blue-50 text-left animate-in fade-in slide-in-from-top-6 duration-700">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-black text-slate-900">🚀 Results</h3>
+                <div className="px-3 py-1 bg-green-100 text-green-700 text-xs font-black rounded-lg uppercase">
+                  AI Analysis Ready
                 </div>
               </div>
-            )}
-          </div>
+              
+              <div className="space-y-6">
+                <div className="prose prose-sm prose-blue max-w-none text-slate-700 leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                  <Markdown>{analysisResult.analysis}</Markdown>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. History Component Section */}
+          {user && (
+            <div className="w-full mt-20 pt-10 border-t border-slate-200">
+               <History key={refreshHistory} />
+            </div>
+          )}
         </div>
       )}
 

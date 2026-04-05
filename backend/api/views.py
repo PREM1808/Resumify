@@ -98,3 +98,36 @@ class AnalyzeResumeView(APIView):
         except Exception as e:
             print(f"❌ Gemini AI Error: {str(e)}")
             return Response({'error': 'AI Analysis service unavailable'}, status=503)
+
+
+class AnalysisHistoryView(APIView):
+    def get(self, request):
+        # 1. Authenticate the user
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return Response({'error': 'Unauthorized'}, status=401)
+
+        id_token = auth_header.split('Bearer ')[1]
+        decoded_token = verify_firebase_token(id_token)
+
+        if not decoded_token:
+            return Response({'error': 'Invalid token'}, status=401)
+
+        user_email = decoded_token.get('email')
+
+        # 2. Fetch only THIS user's records from MySQL
+        # We order by '-created_at' so the newest ones appear first
+        history = ResumeAnalysis.objects.filter(user_email=user_email).order_by('-created_at')
+
+        # 3. Format the data for React
+        history_data = [
+            {
+                "id": record.id,
+                "timestamp": record.created_at.strftime("%Y-%m-%d %H:%M"),
+                "preview": record.resume_text[:100] + "...",
+                "analysis": record.analysis_content
+            }
+            for record in history
+        ]
+
+        return Response({"history": history_data})

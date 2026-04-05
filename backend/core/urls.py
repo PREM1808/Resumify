@@ -17,9 +17,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from api import views
-from api.views import AnalyzeResumeView
+from api.views import AnalyzeResumeView, AnalysisHistoryView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('analyse/', AnalyzeResumeView.as_view(), name='analyse'),
+    path('history/', AnalysisHistoryView.as_view(), name='history'), # New endpoint
 ]
