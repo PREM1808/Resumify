@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { auth } from './firebase'; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import Login from './components/Login'; 
-import History from './components/History'; // 1. Import the new component
+import History from './components/History';
+import { downloadPDF } from './utils/exportPDF'; // Ensure you created this file
 import './App.css';
 import Markdown from 'react-markdown';
 
@@ -21,7 +22,7 @@ const Navbar = ({ user, onLoginClick }) => (
           <button 
             onClick={() => {
               signOut(auth);
-              localStorage.removeItem('token'); // Clear token on logout
+              localStorage.removeItem('token');
             }}
             className="bg-slate-800 text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-slate-700 transition active:scale-95"
           >
@@ -79,15 +80,13 @@ function App() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
-  const [refreshHistory, setRefreshHistory] = useState(0); // Trigger to refresh history list
+  const [refreshHistory, setRefreshHistory] = useState(0);
 
-  // --- Auth Observer ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         setShowAuth(false);
-        // Refresh token in localStorage on state change
         const token = await currentUser.getIdToken();
         localStorage.setItem('token', token);
       }
@@ -110,7 +109,6 @@ function App() {
 
     try {
       const token = await user.getIdToken(true);
-
       const response = await fetch('http://127.0.0.1:8000/analyse/', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -120,16 +118,13 @@ function App() {
       const result = await response.json();
 
       if (!response.ok) {
-        if (response.status === 403) {
-           throw new Error(result.error || "AI Quota exceeded. Please wait a minute.");
-        }
+        if (response.status === 403) throw new Error(result.error || "AI Quota exceeded.");
         throw new Error("Server error occurred.");
       }
 
       setAnalysisResult(result);
-      setRefreshHistory(prev => prev + 1); // 2. Trigger history refresh after success
+      setRefreshHistory(prev => prev + 1);
     } catch (error) {
-      console.error("Analysis Error:", error.message);
       alert(error.message);
     } finally {
       setLoading(false);
@@ -143,10 +138,7 @@ function App() {
       {showAuth ? (
         <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4">
           <Login onLoginSuccess={() => setShowAuth(false)} /> 
-          <button 
-            onClick={() => setShowAuth(false)}
-            className="w-full mt-6 text-slate-400 hover:text-slate-600 text-sm font-medium transition"
-          >
+          <button onClick={() => setShowAuth(false)} className="w-full mt-6 text-slate-400 hover:text-slate-600 text-sm font-medium">
             ← Back to Home
           </button>
         </div>
@@ -157,17 +149,10 @@ function App() {
               Stop guessing. <br />
               <span className="text-blue-600">Start landing.</span>
             </h1>
-            <p className="text-slate-500 text-lg md:text-xl max-w-lg mx-auto">
-              Upload your resume and let AI find the gaps before the recruiter does.
-            </p>
           </header>
 
           <div className="max-w-md mx-auto">
-            <UploadBox 
-              onFileSelect={setFile} 
-              selectedFile={file} 
-              onClear={() => { setFile(null); setAnalysisResult(null); }}
-            />
+            <UploadBox onFileSelect={setFile} selectedFile={file} onClear={() => { setFile(null); setAnalysisResult(null); }} />
             
             <button 
               onClick={handleAnalysis}
@@ -176,33 +161,52 @@ function App() {
                 ${loading ? 'bg-slate-400 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-slate-800'}`}
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-5 h-5 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Crunching Data...
+                <span className="flex items-center justify-center gap-3">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                    <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                  </div>
+                  AI is thinking...
                 </span>
               ) : 'Analyse My Resume'}
             </button>
           </div>
 
-          {/* Current Analysis Result */}
-          {analysisResult && (
-            <div className="max-w-2xl mx-auto mt-10 p-8 bg-white rounded-3xl shadow-2xl border border-blue-50 text-left animate-in fade-in slide-in-from-top-6 duration-700">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-black text-slate-900">🚀 Results</h3>
-                <div className="px-3 py-1 bg-green-100 text-green-700 text-xs font-black rounded-lg uppercase">
-                  AI Analysis Ready
-                </div>
-              </div>
-              
-              <div className="space-y-6">
-                <div className="prose prose-sm prose-blue max-w-none text-slate-700 leading-relaxed bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                  <Markdown>{analysisResult.analysis}</Markdown>
-                </div>
+          {/* --- ENHANCED LOADING UI --- */}
+          {loading && (
+            <div className="max-w-2xl mx-auto mt-10 p-10 bg-white rounded-3xl shadow-xl border border-blue-100 animate-pulse text-center">
+              <div className="text-5xl mb-4 animate-spin-slow">🔄</div>
+              <h3 className="text-2xl font-bold text-slate-800 mb-2">Analyzing Resume...</h3>
+              <p className="text-slate-500 mb-6">Our AI is matching your skills against industry standards.</p>
+              <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                <div className="bg-blue-600 h-full animate-[loading_2s_ease-in-out_infinite]" style={{ width: '45%' }}></div>
               </div>
             </div>
           )}
 
-          {/* 3. History Component Section */}
+          {/* --- RESULTS + PDF EXPORT --- */}
+          {analysisResult && (
+            <div className="max-w-3xl mx-auto mt-10 p-8 bg-white rounded-3xl shadow-2xl border border-blue-50 text-left animate-in fade-in zoom-in-95 duration-700">
+              <div id="analysis-report">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">🚀 Analysis Report</h3>
+                  <div className="px-3 py-1 bg-green-100 text-green-700 text-xs font-black rounded-lg">AI VERIFIED</div>
+                </div>
+                <div className="prose prose-blue max-w-none text-slate-700 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                  <Markdown>{analysisResult.analysis}</Markdown>
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => downloadPDF('analysis-report', `Analysis-${user?.email || 'Guest'}.pdf`)}
+                className="w-full mt-8 py-4 bg-white border-2 border-blue-600 text-blue-600 rounded-xl font-black hover:bg-blue-50 transition active:scale-95 flex items-center justify-center gap-2"
+              >
+                📥 Download PDF Report
+              </button>
+            </div>
+          )}
+
           {user && (
             <div className="w-full mt-20 pt-10 border-t border-slate-200">
                <History key={refreshHistory} />
@@ -213,7 +217,7 @@ function App() {
 
       <footer className="mt-auto py-10 w-full text-center">
         <p className="text-slate-300 text-[10px] font-bold uppercase tracking-[0.2em]">
-          Secure Firebase Auth // Django MySQL // Gemini 2.0 API
+          Secure Firebase Auth // Django MySQL // Gemini 3.0 API
         </p>
       </footer>
     </main>
