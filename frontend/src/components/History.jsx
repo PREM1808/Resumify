@@ -11,8 +11,10 @@ const History = () => {
       if (!token) return;
 
       try {
-        const response = await axios.get('http://localhost:8000/history/', {
-          headers: { Authorization: `Bearer ${token}` }
+        const response = await fetch(`${API_BASE_URL}/analyse/`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: formData,
         });
         setHistory(response.data.history);
       } catch (error) {

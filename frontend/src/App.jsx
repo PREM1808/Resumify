@@ -7,6 +7,10 @@ import { downloadPDF } from './utils/exportPDF'; // Ensure you created this file
 import './App.css';
 import Markdown from 'react-markdown';
 
+
+// This checks if there is a 'VITE_API_URL' environment variable.
+// If not (like on your local machine), it defaults to localhost.
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 // --- Sub-Component: Navbar ---
 const Navbar = ({ user, onLoginClick }) => (
   <nav className="fixed top-0 w-full flex justify-between items-center px-6 md:px-10 py-5 bg-white/70 backdrop-blur-md z-50 border-b border-slate-100">
@@ -109,7 +113,7 @@ function App() {
 
     try {
       const token = await user.getIdToken(true);
-      const response = await fetch('http://127.0.0.1:8000/analyse/', {
+      const response = await fetch(`${API_BASE_URL}/analyse/`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
