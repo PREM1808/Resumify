@@ -10,7 +10,8 @@ import os
 import sys
 import pymysql
 
-# This MUST come before 'from django.core.wsgi import ...'
+# This tricks Django into thinking pymysql is a modern mysqlclient
+pymysql.version_info = (2, 2, 4, "final", 0)
 pymysql.install_as_MySQLdb()
 
 from django.core.wsgi import get_wsgi_application
